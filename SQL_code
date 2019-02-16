@@ -72,3 +72,21 @@ FROM demographics
 INNER JOIN results
 ON demographics.geoid = results.geoid		  
 WHERE (rcv_yes + rcv_no) != 0 AND (mw_yes + mw_no) != 0 AND (bg_yes + bg_no != 0));
+
+-- create table to explore differences between projections and results --
+
+CREATE TABLE proj_percs AS(
+SELECT geoid, (100 * proj_rcv_yes/proj_votes) AS proj_rcv_perc, (100 * proj_mw_yes/proj_votes) AS proj_mw_perc, 
+	(100 * proj_bg_yes/proj_votes) AS proj_bg_perc
+FROM projections)
+
+SELECT * FROM proj_percs
+
+CREATE TABLE proj_vs_results AS 
+(SELECT clarity_data.geoid, share_dem, share_rep, share_white, share_afam, share_female, avg_hhincome, avg_popdens, avg_partyscore,
+avg_collegescore, avg_churchscore, avg_marijuanascore, avg_choicescore, avg_enviroscore, avg_gunownscore, avg_gvpscore,
+rcv_perc, proj_rcv_perc, ABS(rcv_perc - proj_rcv_perc) AS rcv_diff, mw_perc, proj_mw_perc, ABS(mw_perc - proj_mw_perc) AS mw_diff,
+bg_perc, proj_bg_perc, ABS(bg_perc - proj_bg_perc) AS bg_diff
+FROM clarity_data
+INNER JOIN proj_percs
+ON clarity_data.geoid = proj_percs.geoid)
