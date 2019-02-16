@@ -67,7 +67,7 @@ CREATE TABLE clarity_data AS
 (SELECT demographics.geoid, share_dem, share_rep, share_white, share_afam, share_female, avg_hhincome, avg_popdens, avg_partyscore,
 avg_collegescore, avg_churchscore, avg_marijuanascore, avg_choicescore, avg_enviroscore, avg_gunownscore, avg_gvpscore, rcv_yes,
 rcv_no, (100 * rcv_yes/(rcv_yes + rcv_no)) AS rcv_perc, mw_yes, mw_no, (100 * mw_yes/(mw_yes + mw_no)) AS mw_perc,
-bg_yes, bg_no, (100 * bg_yes/(bg_yes + bg_no) AS bg_perc)
+bg_yes, bg_no, (100 * bg_yes/(bg_yes + bg_no)) AS bg_perc
 FROM demographics
 INNER JOIN results
 ON demographics.geoid = results.geoid		  
