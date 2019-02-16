@@ -1,0 +1,134 @@
+####################
+# Clarity junior analyst assessment
+
+# Import clarity_data dataframe from SQL using RStudio GUI, make sure to mark first column as the row names
+
+library(MASS)
+
+# begin exploring data
+
+summary(clarity_data)
+attach(clarity_data) # to make data exploration easier
+names(clarity_data)
+
+# use the pairs function to explore the data
+
+pairs(~ share_white + avg_churchscore + avg_popdens + avg_hhincome + avg_marijuanascore + avg_choicescore + rcv_perc + 
+        mw_perc + bg_perc, clarity_data)
+
+pairs(~ share_female + avg_partyscore + avg_collegescore + avg_churchscore + avg_marijuanascore + avg_gunownscore + 
+      rcv_perc + mw_perc + bg_perc, clarity_data)
+pairs(~ share_afam + avg_popdens + avg_churchscore + avg_marijuanascore + avg_gunownscore + rcv_perc + mw_perc + 
+        bg_perc + avg_hhincome, clarity_data)
+pairs(~avg_hhincome + avg_churchscore + avg_marijuanascore + avg_gunownscore + rcv_perc + mw_perc + bg_perc, clarity_data)
+
+# try plotting potentially interesting interacting variables to get an idea if there's a correlation
+
+plot(share_female, bg_perc)
+# definite correlation here - the moe the population skews female, the more supportive the electorate is of background checks
+
+plot(avg_hhincome, mw_perc)
+# looks like people are pretty evenly split on the minimum wage regardless of average household income
+# may want to explore this more
+
+plot(share_female, rcv_perc)
+# the higher the percentage of women in an area, the more supportive they are of reproductive rights
+
+# I'm interested to see how accurately we can predict if a ballot initiative will pass or fail in a given area
+# based on the demographic information we have on them - try a decision tree
+
+library(tree)
+
+# create new pass variable
+rcv_perc_pass <- ifelse(rcv_perc < 50, "No", "Yes")
+
+# attach these new variables to the data frame
+clarity_data <- data.frame(clarity_data, rcv_perc_pass)
+
+# remove columns that we don't want to affect the decision tree
+clarity_data$rcv_yes <- NULL
+clarity_data$rcv_no <- NULL
+clarity_data$rcv_perc <- NULL
+clarity_data$mw_yes <- NULL
+clarity_data$mw_no <- NULL
+clarity_data$mw_perc <- NULL
+clarity_data$bg_yes <- NULL
+clarity_data$bg_no <- NULL
+clarity_data$bg_perc <- NULL
+
+# prep test set and training set
+set.seed(1)
+train <- sample(1:nrow(clarity_data), nrow(clarity_data)/2)
+clarity.test <- clarity_data[-train,]
+
+# fit the tree to the training set
+tree.clarity <- tree(rcv_perc_pass ~ ., data = clarity_data[train,])
+tree.pred <- predict(tree.clarity, clarity.test, type = "class")
+
+# check error rate
+table(tree.pred, clarity.test$rcv_perc_pass)
+(151 + 54)/245
+
+# we see here that the decision tree model correctly classified 83.673% of test set observations - that's pretty good!
+
+plot(tree.clarity)
+text(tree.clarity)
+title(main = "Passage of Ranked Choice Voting Predicted by Demographics")
+
+# we can also see that we don't need this many nodes - some are pointless
+
+prune.clarity <- prune.misclass(tree.clarity, best = 7)
+pruned.tree.pred <- predict(prune.clarity, clarity.test, type = "class")
+plot(prune.clarity)
+text(prune.clarity)
+title(main = "Passage of Ranked Choice Voting Predicted by Demographics")
+
+# it looks better - test accuracy
+
+table(pruned.tree.pred, clarity.test$rcv_perc_pass)
+(151 + 54)/245
+
+# the best predictor here was avg_gvpscore - let's run a simple linear regression to find out how good it is.
+
+rm(list = ls())
+
+# Load the original clarity_data dataset back in to replace the variables we eliminated.
+
+set.seed(14)
+train <- sample(1:nrow(clarity_data), nrow(clarity_data)/2)
+clarity_train <- clarity_data[train,]
+clarity_test <- clarity_data[-train,]
+
+clarity_fit <- lm(rcv_perc ~ avg_gvpscore, clarity_train)
+summary(clarity_fit)
+mean((rcv_perc - predict(clarity_fit, clarity_data))[-train]^2)
+
+# the model explains about 56% of the variation here, and the validation set error rate is approximately 42.
+
+plot(rcv_perc, avg_gvpscore)
+abline(clarity_fit)
+
+# this doesn't do a great job - try adding the share_rep predictor
+
+clarity_fit2 <- lm(rcv_perc ~ avg_gvpscore + share_rep, clarity_train)
+summary(clarity_fit2)
+mean((rcv_perc - predict(clarity_fit2, clarity_data))[-train]^2)
+
+# we've improved! we're at 59% of the variation now, and our validation set error rate is about 40. 
+# Try adding the avg_enviroscore variable
+
+clarity_fit3 <- lm(rcv_perc ~ avg_gvpscore + share_rep + avg_enviroscore, clarity_train)
+summary(clarity_fit3)
+mean((rcv_perc - predict(clarity_fit3, clarity_data))[-train]^2)
+
+# The adjusted R-squared is up to 61% now, and our validation set error rate is down to 35! 
+# Let's try one more - share_female
+
+clarity_fit4 <- lm(rcv_perc ~ avg_gvpscore + share_rep + avg_enviroscore + share_female, clarity_train)
+summary(clarity_fit4)
+mean((rcv_perc - predict(clarity_fit4, clarity_data))[-train]^2)
+
+# Our adjusted R-squared is still at 61, and our validation set error rate went back up to 36. This probably means we've
+# overfit the data, so the best model we have is clarity_fit3.
+
+plot(clarity_fit3)
