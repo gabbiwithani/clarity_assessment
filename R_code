@@ -20,6 +20,7 @@ pairs(~ share_female + avg_partyscore + avg_collegescore + avg_churchscore + avg
       rcv_perc + mw_perc + bg_perc, clarity_data)
 pairs(~ share_afam + avg_popdens + avg_churchscore + avg_marijuanascore + avg_gunownscore + rcv_perc + mw_perc + 
         bg_perc + avg_hhincome, clarity_data)
+
 pairs(~avg_hhincome + avg_churchscore + avg_marijuanascore + avg_gunownscore + rcv_perc + mw_perc + bg_perc, clarity_data)
 
 # try plotting potentially interesting interacting variables to get an idea if there's a correlation
@@ -62,6 +63,7 @@ train <- sample(1:nrow(clarity_data), nrow(clarity_data)/2)
 clarity.test <- clarity_data[-train,]
 
 # fit the tree to the training set
+library(tree)
 tree.clarity <- tree(rcv_perc_pass ~ ., data = clarity_data[train,])
 tree.pred <- predict(tree.clarity, clarity.test, type = "class")
 
@@ -88,6 +90,25 @@ title(main = "Passage of Ranked Choice Voting Predicted by Demographics")
 table(pruned.tree.pred, clarity.test$rcv_perc_pass)
 (151 + 54)/245
 
+prune.clarity1 <- prune.misclass(tree.clarity, best = 2)
+plot(prune.clarity1)
+text(prune.clarity1)
+
+prune.clarity2 <- prune.misclass(tree.clarity, best = 3)
+plot(prune.clarity2)
+text(prune.clarity2)
+
+prune.clarity3 <- prune.misclass(tree.clarity, best = 4)
+plot(prune.clarity3)
+text(prune.clarity3)
+
+prune.clarity4 <- prune.misclass(tree.clarity, best = 5)
+plot(prune.clarity4)
+text(prune.clarity4)
+
+prune.clarity5 <- prune.misclass(tree.clarity, best = 6)
+plot(prune.clarity5)
+text(prune.clarity5)
 # the best predictor here was avg_gvpscore - let's run a simple linear regression to find out how good it is.
 
 rm(list = ls())
@@ -107,6 +128,7 @@ mean((rcv_perc - predict(clarity_fit, clarity_data))[-train]^2)
 
 plot(rcv_perc, avg_gvpscore)
 abline(clarity_fit)
+title(main = "Ranked Choice Voting and Gun Violence Prevention Scores")
 
 # this doesn't do a great job - try adding the share_rep predictor
 
@@ -132,3 +154,15 @@ mean((rcv_perc - predict(clarity_fit4, clarity_data))[-train]^2)
 # overfit the data, so the best model we have is clarity_fit3.
 
 plot(clarity_fit3)
+
+# two different gun-issue related predictors landed in the predictors for ranked choice voting - how do RCV and the 
+# background check question relate?
+plot(rcv_perc, bg_perc)
+bg_rcv.model <- lm(rcv_perc ~ bg_perc, clarity_data)
+abline(bg_rcv.model)
+title(main = "Ranked Choice Voting and Background Check Support")
+
+
+gun_rcv.model <- lm(rcv_perc ~ bg_perc + avg_gvpscore + avg_gunownscore, clarity_data)
+summary(gun_rcv.model)
+
